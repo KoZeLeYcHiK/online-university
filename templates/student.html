@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Студент</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Панель студента</h1>
+            <a href="/logout?session_id={{.SessionID}}" class="logout-btn">Выйти</a>
+        </header>
+        <nav>
+            <ul>
+                <li><a href="#" onclick="loadPage('courses')">Все курсы</a></li>
+                <li><a href="#" onclick="loadPage('myGrades')">Моя успеваемость</a></li>
+                <li><a href="#" onclick="loadPage('schedule')">Расписание</a></li>
+            </ul>
+        </nav>
+        <div class="content" id="content"></div>
+    </div>
+    <script>
+        const sessionId = "{{.SessionID}}";
+        
+        function loadPage(page) {
+            const content = document.getElementById('content');
+            content.innerHTML = '<p>Загрузка...</p>';
+            
+            let apiUrl = '';
+            let title = '';
+            if (page === 'myGrades') {
+                apiUrl = `/api/student/grades?session_id=${sessionId}`;
+                title = 'Моя успеваемость';
+            } else if (page === 'courses') {
+                apiUrl = `/api/courses?session_id=${sessionId}`;
+                title = 'Все курсы';
+            } else if (page === 'schedule') {
+                apiUrl = `/api/schedule?session_id=${sessionId}`;
+                title = 'Расписание';
+            }
+            
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        content.innerHTML = `<h2>${title}</h2><p>Нет данных</p>`;
+                        return;
+                    }
+                    
+                    let html = `<h2>${title}</h2><div class="table-container"><table><thead><tr>`;
+                    
+                    // Заголовки для разных страниц
+                    if (page === 'myGrades') {
+                        html += '<th>Курс</th><th>Оценка</th><th>Дата</th>';
+                    } else if (page === 'courses') {
+                        html += '<th>ID</th><th>Название</th><th>Описание</th><th>Кредиты</th><th>Макс. студентов</th><th>Преподаватель</th>';
+                    } else if (page === 'schedule') {
+                        html += '<th>Курс</th><th>Преподаватель</th><th>Дата и время</th><th>Аудитория</th><th>Ссылка</th>';
+                    } else {
+                        Object.keys(data[0]).forEach(key => {
+                            html += `<th>${key}</th>`;
+                        });
+                    }
+                    html += '</tr></thead><tbody>';
+                    
+                    data.forEach(item => {
+                        html += '<tr>';
+                        if (page === 'myGrades') {
+                            html += `<td>${item.course || '-'}</td>`;
+                            html += `<td>${item.grade || '-'}</td>`;
+                            html += `<td>${item.date || '-'}</td>`;
+                        } else if (page === 'courses') {
+                            html += `<td>${item.ID || '-'}</td>`;
+                            html += `<td>${item.Title || '-'}</td>`;
+                            html += `<td>${item.Description || '-'}</td>`;
+                            html += `<td>${item.CreditsECTS || '-'}</td>`;
+                            html += `<td>${item.MaxStudents || '-'}</td>`;
+                            html += `<td>${item.TeacherName || '-'}</td>`;
+                        } else if (page === 'schedule') {
+                            html += `<td>${item.course || '-'}</td>`;
+                            html += `<td>${item.teacher || '-'}</td>`;
+                            html += `<td>${item.datetime || '-'}</td>`;
+                            html += `<td>${item.room || '-'}</td>`;
+                            let link = item.meeting_link || '-';
+                            if (link !== '-' && link.startsWith('http')) {
+                                link = `<a href="${link}" target="_blank">Подключиться</a>`;
+                            }
+                            html += `<td>${link}</td>`;
+                        } else {
+                            Object.values(item).forEach(value => {
+                                html += `<td>${value || '-'}</td>`;
+                            });
+                        }
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table></div>';
+                    content.innerHTML = html;
+                })
+                .catch((error) => {
+                    console.error(error);
+                    content.innerHTML = `<h2>${title}</h2><p style="color:red">Ошибка загрузки данных</p>`;
+                });
+        }
+        
+        loadPage('courses');
+    </script>
+</body>
+</html>

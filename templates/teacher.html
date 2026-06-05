@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Преподаватель</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Панель преподавателя</h1>
+            <a href="/logout?session_id={{.SessionID}}" class="logout-btn">Выйти</a>
+        </header>
+        <nav>
+            <ul>
+                <li><a href="#" onclick="showSection('myCourses')">Мои курсы</a></li>
+                <li><a href="#" onclick="showSection('schedule')">Расписание</a></li>
+            </ul>
+        </nav>
+        <div class="content" id="content"></div>
+    </div>
+
+    <div id="gradeModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeGradeModal()">&times;</span>
+            <h3>Выставить оценку</h3>
+            <form id="gradeForm">
+                <input type="hidden" id="gradeStudentId" name="student_id">
+                <input type="hidden" id="gradeCourseId" name="course_id">
+                <div class="form-group">
+                    <label>Студент: <span id="studentName"></span></label>
+                </div>
+                <div class="form-group">
+                    <label>Оценка:</label>
+                    <select name="grade" required>
+                        <option value="отлично">отлично</option>
+                        <option value="хорошо">хорошо</option>
+                        <option value="удовлетворительно">удовлетворительно</option>
+                        <option value="неудовлетворительно">неудовлетворительно</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn" onclick="closeGradeModal()">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const sessionId = "{{.SessionID}}";
+        let currentSection = 'myCourses';
+
+        function showSection(section) {
+            currentSection = section;
+            if (section === 'myCourses') {
+                loadMyCourses();
+            } else if (section === 'schedule') {
+                loadSchedule();
+            }
+        }
+
+        function loadMyCourses() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<p>Загрузка...</p>';
+            
+            fetch(`/api/teacher/courses?session_id=${sessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        content.innerHTML = '<h2>Мои курсы</h2><p>Нет курсов</p>';
+                        return;
+                    }
+                    let html = '<h2>Мои курсы</h2><div class="table-container"><table><thead><tr>';
+                    html += '<th>ID</th><th>Название</th><th>Описание</th><th>Кредиты</th><th>Макс. студентов</th><th>Действие</th></thead><tbody>';
+                    data.forEach(course => {
+                        html += `<tr>
+                            <td>${course.id !== undefined ? course.id : '-'}</td>
+                            <td>${course.title || '-'}</td>
+                            <td>${course.description || '-'}</td>
+                            <td>${course.credits_ects || '-'}</td>
+                            <td>${course.max_students || '-'}</td>
+                            <td><button class="btn btn-primary" onclick="showCourseStudents(${course.id}, '${course.title.replace(/'/g, "\\'")}')">Список студентов</button></td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table></div>';
+                    content.innerHTML = html;
+                })
+                .catch(() => {
+                    content.innerHTML = '<h2>Мои курсы</h2><p>Ошибка загрузки</p>';
+                });
+        }
+
+        function loadSchedule() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<p>Загрузка...</p>';
+            
+            fetch(`/api/schedule?session_id=${sessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        content.innerHTML = '<h2>Расписание</h2><p>Нет занятий</p>';
+                        return;
+                    }
+                    let html = '<h2>Расписание</h2><div class="table-container"><table><thead><tr>';
+                    html += '<th>Курс</th><th>Дата и время</th><th>Аудитория</th><th>Ссылка</th><th>Преподаватель</th></thead><tbody>';
+                    data.forEach(item => {
+                        let link = item.meeting_link || '-';
+                        if (link !== '-' && link.startsWith('http')) {
+                            link = `<a href="${link}" target="_blank">Подключиться</a>`;
+                        }
+                        html += `<tr>
+                            <td>${item.course || '-'}</td>
+                            <td>${item.datetime || '-'}</td>
+                            <td>${item.room || '-'}</td>
+                            <td>${link}</td>
+                            <td>${item.teacher || '-'}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table></div>';
+                    content.innerHTML = html;
+                })
+                .catch(() => {
+                    content.innerHTML = '<h2>Расписание</h2><p>Ошибка загрузки</p>';
+                });
+        }
+
+        function showCourseStudents(courseId, courseTitle) {
+            const content = document.getElementById('content');
+            content.innerHTML = '<p>Загрузка...</p>';
+            
+            fetch(`/api/course/students?course_id=${courseId}&session_id=${sessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        content.innerHTML = `<h2>${courseTitle}</h2><p>Нет студентов</p><button class="btn" onclick="loadMyCourses()">Назад</button>`;
+                        return;
+                    }
+                    let html = `<h2>${courseTitle} - Студенты</h2><div class="table-container"><table><thead><tr>`;
+                    html += '<th>Студент</th><th>Оценка</th><th>Действие</th></thead><tbody>';
+                    data.forEach(student => {
+                        html += `<tr>
+                            <td>${student.full_name || '-'}</td>
+                            <td>${student.grade || 'не оценено'}</td>
+                            <td><button class="btn btn-primary" onclick='openGradeModal(${student.id}, ${courseId}, "${student.full_name.replace(/"/g, '&quot;')}")'>Выставить оценку</button></td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table><br><button class="btn" onclick="loadMyCourses()">Назад к курсам</button></div>';
+                    content.innerHTML = html;
+                })
+                .catch(() => {
+                    content.innerHTML = `<h2>${courseTitle}</h2><p>Ошибка загрузки</p><button class="btn" onclick="loadMyCourses()">Назад</button>`;
+                });
+        }
+
+        function openGradeModal(studentId, courseId, studentName) {
+            document.getElementById('gradeStudentId').value = studentId;
+            document.getElementById('gradeCourseId').value = courseId;
+            document.getElementById('studentName').innerText = studentName;
+            document.getElementById('gradeModal').style.display = 'block';
+        }
+
+        function closeGradeModal() {
+            document.getElementById('gradeModal').style.display = 'none';
+        }
+
+        // Ждём загрузки DOM перед привязкой формы
+        document.addEventListener('DOMContentLoaded', function() {
+            const gradeForm = document.getElementById('gradeForm');
+            if (gradeForm) {
+                gradeForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const studentId = document.getElementById('gradeStudentId').value;
+                    const courseId = document.getElementById('gradeCourseId').value;
+                    const grade = document.querySelector('#gradeForm select[name="grade"]').value;
+                    
+                    const formData = new FormData();
+                    formData.append('student_id', studentId);
+                    formData.append('course_id', courseId);
+                    formData.append('grade', grade);
+                    
+                    fetch(`/api/teacher/update-grade?session_id=${sessionId}`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            alert('Оценка выставлена успешно!');
+                            closeGradeModal();
+                            loadMyCourses();
+                        } else {
+                            alert('Ошибка при выставлении оценки');
+                        }
+                    })
+                    .catch(() => {
+                        alert('Ошибка при выставлении оценки');
+                    });
+                });
+            }
+        });
+
+        showSection('myCourses');
+    </script>
+    <style>
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 15% auto; padding: 20px; width: 400px; border-radius: 10px; }
+        .close { float: right; font-size: 24px; cursor: pointer; }
+        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin: 2px; }
+        .btn-primary { background: #3498db; color: white; }
+        .table-container { overflow-x: auto; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #3498db; color: white; }
+        .form-group { margin-bottom: 15px; }
+        .form-group select { width: 100%; padding: 8px; }
+    </style>
+</body>
+</html>

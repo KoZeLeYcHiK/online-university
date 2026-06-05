@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Администратор</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Панель администратора</h1>
+            <a href="/logout?session_id={{.SessionID}}" class="logout-btn">Выйти</a>
+        </header>
+        <nav>
+            <ul>
+                <li><a href="#" onclick="showSection('courses')">Курсы</a></li>
+                <li><a href="#" onclick="showSection('students')">Студенты</a></li>
+                <li><a href="#" onclick="showSection('teachers')">Преподаватели</a></li>
+                <li><a href="#" onclick="showSection('schedule')">Расписание</a></li>
+                <li><a href="#" onclick="showSection('grades')">Успеваемость</a></li>
+            </ul>
+        </nav>
+        <div class="content" id="content"></div>
+    </div>
+
+    <!-- Модальное окно для добавления -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modalForm"></div>
+        </div>
+    </div>
+
+    <script>
+        const sessionId = "{{.SessionID}}";
+        let currentSection = 'courses';
+
+        function showSection(section) {
+            currentSection = section;
+            if (section === 'grades') {
+                loadGrades();
+            } else {
+                loadData(section);
+            }
+        }
+
+        // Загрузка таблиц (студенты, курсы, преподаватели, расписание)
+        function loadData(section) {
+            const content = document.getElementById('content');
+            content.innerHTML = '<p>Загрузка...</p>';
+            
+            let apiUrl = '';
+            if (section === 'students') apiUrl = `/api/students?session_id=${sessionId}`;
+            else if (section === 'courses') apiUrl = `/api/courses?session_id=${sessionId}`;
+            else if (section === 'teachers') apiUrl = `/api/teachers?session_id=${sessionId}`;
+            else if (section === 'schedule') apiUrl = `/api/schedule?session_id=${sessionId}`;
+            
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        content.innerHTML = `<h2>${getTitle(section)}</h2><button class="btn btn-primary" onclick="showAddForm()">➕ Добавить</button><p>Нет данных</p>`;
+                        return;
+                    }
+                    
+                    let html = `<h2>${getTitle(section)}</h2><button class="btn btn-primary" onclick="showAddForm()">➕ Добавить</button><div class="table-container"><table><thead><tr>`;
+                    
+                    // Заголовки
+                    let headers = getHeaders(section, data[0]);
+                    for (let key in headers) {
+                        html += `<th>${headers[key]}</th>`;
+                    }
+                    html += '<th>Действие</th></thead><tbody>';
+                    
+                    // Строки таблицы
+                    data.forEach(item => {
+                        html += '<tr>';
+                        for (let key in headers) {
+                            let value = item[key];
+                            if (value === null || value === undefined) value = '-';
+                            html += `<td>${value}</td>`;
+                        }
+                        let id = item.ID || item.id;
+                        html += `<td><button class="btn btn-danger" onclick="deleteItem(${id})">🗑 Удалить</button></td>`;
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table></div>';
+                    content.innerHTML = html;
+                })
+                .catch(() => {
+                    content.innerHTML = `<h2>${getTitle(section)}</h2><p>Ошибка загрузки</p>`;
+                });
+        }
+
+        // Успеваемость
+        function loadGrades() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<p>Загрузка...</p>';
+            
+            fetch(`/api/students-grades?session_id=${sessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        content.innerHTML = '<h2>Успеваемость</h2><p>Нет данных</p>';
+                        return;
+                    }
+                    let html = '<h2>Успеваемость студентов</h2><div class="table-container"><table><thead><tr>';
+                    html += '<th>Студент</th><th>Курс</th><th>Оценка</th><th>Дата</th></thead><tbody>';
+                    data.forEach(item => {
+                        html += `<tr>
+                            <td>${item.student || '-'}</td>
+                            <td>${item.course || '-'}</td>
+                            <td>${item.grade || '-'}</td>
+                            <td>${item.date || '-'}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table></div>';
+                    content.innerHTML = html;
+                })
+                .catch(() => {
+                    content.innerHTML = '<h2>Успеваемость</h2><p>Ошибка загрузки</p>';
+                });
+        }
+
+        function getTitle(section) {
+            const titles = { 'students': 'Студенты', 'courses': 'Курсы', 'teachers': 'Преподаватели', 'schedule': 'Расписание' };
+            return titles[section] || section;
+        }
+
+        function getHeaders(section, firstItem) {
+            let headers = {};
+            if (section === 'students') {
+                headers = { 'LastName': 'Фамилия', 'FirstName': 'Имя', 'MiddleName': 'Отчество', 'RecordBookNumber': 'Зачетка', 'EnrollmentYear': 'Год', 'Status': 'Статус' };
+            } else if (section === 'courses') {
+                headers = { 'Title': 'Название', 'Description': 'Описание', 'CreditsECTS': 'Кредиты', 'MaxStudents': 'Макс. студентов', 'TeacherName': 'Преподаватель' };
+            } else if (section === 'teachers') {
+                headers = { 'full_name': 'ФИО', 'department': 'Кафедра', 'qualification': 'Квалификация', 'degree': 'Ученая степень' };
+            } else if (section === 'schedule') {
+                headers = { 'course': 'Курс', 'teacher': 'Преподаватель', 'datetime': 'Дата и время', 'room': 'Аудитория' };
+            } else {
+                Object.keys(firstItem).forEach(key => { headers[key] = key; });
+            }
+            return headers;
+        }
+
+        // Формы добавления
+        function showAddForm() {
+            const modal = document.getElementById('addModal');
+            const modalForm = document.getElementById('modalForm');
+            
+            if (currentSection === 'students') {
+                modalForm.innerHTML = `
+                    <h3>➕ Добавить студента</h3>
+                    <form onsubmit="addStudent(event)">
+                        <input type="text" name="last_name" placeholder="Фамилия" required>
+                        <input type="text" name="first_name" placeholder="Имя" required>
+                        <input type="text" name="middle_name" placeholder="Отчество">
+                        <input type="text" name="record_book" placeholder="Номер зачетки" required>
+                        <input type="number" name="enrollment_year" placeholder="Год поступления" required>
+                        <select name="status" required>
+                            <option value="активен">активен</option>
+                            <option value="академический отпуск">академический отпуск</option>
+                            <option value="отчислен">отчислен</option>
+                        </select>
+                        <input type="number" name="direction_id" placeholder="ID направления" value="1">
+                        <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+                    </form>
+                `;
+            } else if (currentSection === 'courses') {
+                modalForm.innerHTML = `
+                    <h3>➕ Добавить курс</h3>
+                    <form onsubmit="addCourse(event)">
+                        <input type="text" name="title" placeholder="Название" required>
+                        <textarea name="description" placeholder="Описание" rows="3"></textarea>
+                        <input type="number" name="credits" placeholder="Кредиты ECTS" required>
+                        <input type="number" name="max_students" placeholder="Макс. студентов" required>
+                        <input type="number" name="teacher_id" placeholder="ID преподавателя" required>
+                        <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+                    </form>
+                `;
+            } else if (currentSection === 'teachers') {
+                modalForm.innerHTML = `
+                    <h3>➕ Добавить преподавателя</h3>
+                    <form onsubmit="addTeacher(event)">
+                        <input type="text" name="last_name" placeholder="Фамилия" required>
+                        <input type="text" name="first_name" placeholder="Имя" required>
+                        <input type="text" name="middle_name" placeholder="Отчество">
+                        <input type="text" name="department" placeholder="Кафедра">
+                        <select name="qualification_id" required>
+                            <option value="1">Ассистент</option>
+                            <option value="2">Старший преподаватель</option>
+                            <option value="3">Доцент</option>
+                            <option value="4">Профессор</option>
+                        </select>
+                        <select name="degree_id" required>
+                            <option value="1">Кандидат наук</option>
+                            <option value="2">Доктор наук</option>
+                            <option value="3">Без степени</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+                    </form>
+                `;
+            }
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('addModal').style.display = 'none';
+        }
+
+        // API вызовы
+        function addStudent(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            fetch(`/api/add-student?session_id=${sessionId}`, { method: 'POST', body: formData })
+                .then(() => { closeModal(); loadData('students'); });
+        }
+
+        function addCourse(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            fetch(`/api/add-course?session_id=${sessionId}`, { method: 'POST', body: formData })
+                .then(() => { closeModal(); loadData('courses'); });
+        }
+
+        function addTeacher(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            fetch(`/api/add-teacher?session_id=${sessionId}`, { method: 'POST', body: formData })
+                .then(() => { closeModal(); loadData('teachers'); });
+        }
+
+        function deleteItem(id) {
+            if (!confirm('Удалить запись?')) return;
+            let endpoint = '';
+            if (currentSection === 'students') endpoint = '/api/delete-student';
+            else if (currentSection === 'courses') endpoint = '/api/delete-course';
+            else if (currentSection === 'teachers') endpoint = '/api/delete-teacher';
+            else return;
+            
+            fetch(`${endpoint}?session_id=${sessionId}&id=${id}`, { method: 'DELETE' })
+                .then(() => loadData(currentSection));
+        }
+
+        showSection('courses');
+    </script>
+    <style>
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 5% auto; padding: 25px; width: 500px; border-radius: 10px; max-height: 80%; overflow-y: auto; }
+        .modal-content input, .modal-content textarea, .modal-content select { width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; }
+        .close { float: right; font-size: 24px; cursor: pointer; }
+        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .table-container { overflow-x: auto; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #3498db; color: white; }
+    </style>
+</body>
+</html>
