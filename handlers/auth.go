@@ -1,22 +1,31 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"html/template"
 	"net/http"
-	"online-university/database"
 )
 
-// Хранилище сессий (в памяти)
-var sessions = make(map[string]string)
+type AuthHandler struct {
+	db       *sql.DB
+	sessions map[string]string
+}
 
-func LoginPage(w http.ResponseWriter, r *http.Request) {
+func NewAuthHandler(db *sql.DB) *AuthHandler {
+	return &AuthHandler{
+		db:       db,
+		sessions: make(map[string]string),
+	}
+}
+
+func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	tmpl, _ := template.ParseFiles("templates/login.html")
 	errorMsg := r.URL.Query().Get("error")
 	tmpl.Execute(w, map[string]interface{}{"error": errorMsg == "1"})
 }
 
-func AuthHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) AuthHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("=== AuthHandler вызван ===")
 
 	if r.Method != http.MethodPost {
@@ -27,12 +36,9 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
 	login := r.FormValue("login")
 	password := r.FormValue("password")
 
-	fmt.Println("Login:", login)
-	fmt.Println("Password:", password)
-
 	var role string
 	var userID int
-	err := database.DB.QueryRow(`
+	err := h.db.QueryRow(`
         SELECT id_пользователя, р.Название 
         FROM Пользователь п
         JOIN Роль р ON п.id_роли = р.id_роли
@@ -47,11 +53,9 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Успешный вход! Роль:", role)
 
-	// Создаём ID сессии
 	sessionID := fmt.Sprintf("%d_%s", userID, login)
-	sessions[sessionID] = role
+	h.sessions[sessionID] = role
 
-	// Редирект с session_id
 	switch role {
 	case "Администратор":
 		http.Redirect(w, r, "/admin?session_id="+sessionID, http.StatusSeeOther)
@@ -64,23 +68,23 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("session_id")
-	delete(sessions, sessionID)
+	delete(h.sessions, sessionID)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-func GetRole(r *http.Request) string {
+func (h *AuthHandler) GetRole(r *http.Request) string {
 	sessionID := r.URL.Query().Get("session_id")
-	role, exists := sessions[sessionID]
+	role, exists := h.sessions[sessionID]
 	if !exists {
 		return ""
 	}
 	return role
 }
 
-func CheckRole(r *http.Request, allowedRoles ...string) bool {
-	role := GetRole(r)
+func (h *AuthHandler) CheckRole(r *http.Request, allowedRoles ...string) bool {
+	role := h.GetRole(r)
 	for _, allowed := range allowedRoles {
 		if role == allowed {
 			return true

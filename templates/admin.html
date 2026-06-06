@@ -31,6 +31,14 @@
         </div>
     </div>
 
+    <!-- Модальное окно для редактирования -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <div id="editModalForm"></div>
+        </div>
+    </div>
+
     <script>
         const sessionId = "{{.SessionID}}";
         let currentSection = 'courses';
@@ -44,7 +52,6 @@
             }
         }
 
-        // Загрузка таблиц (студенты, курсы, преподаватели, расписание)
         function loadData(section) {
             const content = document.getElementById('content');
             content.innerHTML = '<p>Загрузка...</p>';
@@ -65,14 +72,12 @@
                     
                     let html = `<h2>${getTitle(section)}</h2><button class="btn btn-primary" onclick="showAddForm()">➕ Добавить</button><div class="table-container"><table><thead><tr>`;
                     
-                    // Заголовки
                     let headers = getHeaders(section, data[0]);
                     for (let key in headers) {
                         html += `<th>${headers[key]}</th>`;
                     }
                     html += '<th>Действие</th></thead><tbody>';
                     
-                    // Строки таблицы
                     data.forEach(item => {
                         html += '<tr>';
                         for (let key in headers) {
@@ -81,7 +86,10 @@
                             html += `<td>${value}</td>`;
                         }
                         let id = item.ID || item.id;
-                        html += `<td><button class="btn btn-danger" onclick="deleteItem(${id})">🗑 Удалить</button></td>`;
+                        html += `<td>
+                            <button class="btn btn-warning" onclick="showEditForm(${id})">✏️ Редактировать</button>
+                            <button class="btn btn-danger" onclick="deleteItem(${id})">🗑 Удалить</button>
+                        </td>`;
                         html += '</tr>';
                     });
                     html += '</tbody></table></div>';
@@ -92,7 +100,6 @@
                 });
         }
 
-        // Успеваемость
         function loadGrades() {
             const content = document.getElementById('content');
             content.innerHTML = '<p>Загрузка...</p>';
@@ -137,13 +144,11 @@
                 headers = { 'full_name': 'ФИО', 'department': 'Кафедра', 'qualification': 'Квалификация', 'degree': 'Ученая степень' };
             } else if (section === 'schedule') {
                 headers = { 'course': 'Курс', 'teacher': 'Преподаватель', 'datetime': 'Дата и время', 'room': 'Аудитория' };
-            } else {
-                Object.keys(firstItem).forEach(key => { headers[key] = key; });
             }
             return headers;
         }
 
-        // Формы добавления
+        // Форма добавления
         function showAddForm() {
             const modal = document.getElementById('addModal');
             const modalForm = document.getElementById('modalForm');
@@ -204,16 +209,95 @@
             modal.style.display = 'block';
         }
 
+        // Форма редактирования
+        function showEditForm(id) {
+            const modal = document.getElementById('editModal');
+            const editModalForm = document.getElementById('editModalForm');
+            
+            // Сначала получаем текущие данные
+            let apiUrl = '';
+            if (currentSection === 'students') apiUrl = `/api/students?session_id=${sessionId}`;
+            else if (currentSection === 'courses') apiUrl = `/api/courses?session_id=${sessionId}`;
+            else if (currentSection === 'teachers') apiUrl = `/api/teachers?session_id=${sessionId}`;
+            
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    const item = data.find(x => (x.ID || x.id) == id);
+                    if (!item) return;
+                    
+                    if (currentSection === 'students') {
+                        editModalForm.innerHTML = `
+                            <h3>✏️ Редактировать студента</h3>
+                            <form onsubmit="updateStudent(event, ${id})">
+                                <input type="text" name="record_book" value="${item.RecordBookNumber || ''}" placeholder="Номер зачетки" required>
+                                <input type="number" name="enrollment_year" value="${item.EnrollmentYear || ''}" placeholder="Год поступления" required>
+                                <select name="status" required>
+                                    <option value="активен" ${item.Status === 'активен' ? 'selected' : ''}>активен</option>
+                                    <option value="академический отпуск" ${item.Status === 'академический отпуск' ? 'selected' : ''}>академический отпуск</option>
+                                    <option value="отчислен" ${item.Status === 'отчислен' ? 'selected' : ''}>отчислен</option>
+                                </select>
+                                <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+                            </form>
+                        `;
+                    } else if (currentSection === 'courses') {
+                        editModalForm.innerHTML = `
+                            <h3>✏️ Редактировать курс</h3>
+                            <form onsubmit="updateCourse(event, ${id})">
+                                <input type="text" name="title" value="${item.Title || ''}" placeholder="Название" required>
+                                <textarea name="description" placeholder="Описание" rows="3">${item.Description || ''}</textarea>
+                                <input type="number" name="credits" value="${item.CreditsECTS || ''}" placeholder="Кредиты ECTS" required>
+                                <input type="number" name="max_students" value="${item.MaxStudents || ''}" placeholder="Макс. студентов" required>
+                                <input type="number" name="teacher_id" placeholder="ID преподавателя" required>
+                                <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+                            </form>
+                        `;
+                    } else if (currentSection === 'teachers') {
+                        editModalForm.innerHTML = `
+                            <h3>✏️ Редактировать преподавателя</h3>
+                            <form onsubmit="updateTeacher(event, ${id})">
+                                <input type="text" name="department" value="${item.department || ''}" placeholder="Кафедра">
+                                <select name="qualification_id" required>
+                                    <option value="1">Ассистент</option>
+                                    <option value="2">Старший преподаватель</option>
+                                    <option value="3">Доцент</option>
+                                    <option value="4">Профессор</option>
+                                </select>
+                                <select name="degree_id" required>
+                                    <option value="1">Кандидат наук</option>
+                                    <option value="2">Доктор наук</option>
+                                    <option value="3">Без степени</option>
+                                </select>
+                                <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+                            </form>
+                        `;
+                    }
+                    modal.style.display = 'block';
+                });
+        }
+
         function closeModal() {
             document.getElementById('addModal').style.display = 'none';
         }
 
-        // API вызовы
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        // CRUD операции
         function addStudent(event) {
             event.preventDefault();
             const formData = new FormData(event.target);
             fetch(`/api/add-student?session_id=${sessionId}`, { method: 'POST', body: formData })
                 .then(() => { closeModal(); loadData('students'); });
+        }
+
+        function updateStudent(event, id) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            formData.append('id', id);
+            fetch(`/api/update-student?session_id=${sessionId}`, { method: 'POST', body: formData })
+                .then(() => { closeEditModal(); loadData('students'); });
         }
 
         function addCourse(event) {
@@ -223,11 +307,27 @@
                 .then(() => { closeModal(); loadData('courses'); });
         }
 
+        function updateCourse(event, id) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            formData.append('id', id);
+            fetch(`/api/update-course?session_id=${sessionId}`, { method: 'POST', body: formData })
+                .then(() => { closeEditModal(); loadData('courses'); });
+        }
+
         function addTeacher(event) {
             event.preventDefault();
             const formData = new FormData(event.target);
             fetch(`/api/add-teacher?session_id=${sessionId}`, { method: 'POST', body: formData })
                 .then(() => { closeModal(); loadData('teachers'); });
+        }
+
+        function updateTeacher(event, id) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            formData.append('id', id);
+            fetch(`/api/update-teacher?session_id=${sessionId}`, { method: 'POST', body: formData })
+                .then(() => { closeEditModal(); loadData('teachers'); });
         }
 
         function deleteItem(id) {
@@ -251,6 +351,7 @@
         .close { float: right; font-size: 24px; cursor: pointer; }
         .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
         .btn-primary { background: #3498db; color: white; }
+        .btn-warning { background: #f39c12; color: white; }
         .btn-danger { background: #e74c3c; color: white; }
         .table-container { overflow-x: auto; margin-top: 20px; }
         table { width: 100%; border-collapse: collapse; }
