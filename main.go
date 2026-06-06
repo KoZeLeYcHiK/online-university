@@ -11,10 +11,8 @@ import (
 )
 
 func main() {
-	// Загрузка конфигурации
 	cfg := config.LoadConfig()
 
-	// Подключение к БД
 	db, err := database.NewDB(cfg)
 	if err != nil {
 		log.Fatal("Ошибка подключения к БД:", err)
@@ -22,13 +20,13 @@ func main() {
 	defer db.Close()
 	fmt.Println("Подключение к PostgreSQL установлено")
 
-	// Инициализация сервисов
+	// Сервисы
 	courseService := services.NewCourseService(db.Conn)
 	studentService := services.NewStudentService(db.Conn)
 	teacherService := services.NewTeacherService(db.Conn)
 	gradeService := services.NewGradeService(db.Conn)
 
-	// Инициализация обработчиков
+	// Обработчики
 	authHandler := handlers.NewAuthHandler(db.Conn)
 	courseHandler := handlers.NewCourseHandler(courseService, authHandler)
 	studentHandler := handlers.NewStudentHandler(studentService, authHandler)
@@ -37,7 +35,6 @@ func main() {
 	scheduleHandler := handlers.NewScheduleHandler(db.Conn, authHandler)
 	uiHandler := handlers.NewUIHandler(db.Conn, authHandler)
 
-	// Статические файлы
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	// Страницы
@@ -60,7 +57,7 @@ func main() {
 	http.HandleFunc("/api/course/students", gradeHandler.GetCourseStudents)
 	http.HandleFunc("/api/student/grades", gradeHandler.GetStudentGrades)
 
-	// CRUD API для администратора
+	// CRUD администратора
 	http.HandleFunc("/api/add-student", studentHandler.AddStudent)
 	http.HandleFunc("/api/delete-student", studentHandler.DeleteStudent)
 	http.HandleFunc("/api/update-student", studentHandler.UpdateStudent)

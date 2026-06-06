@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"online-university/constants"
 	"online-university/services"
 )
 
@@ -16,7 +17,7 @@ func NewGradeHandler(service *services.GradeService, auth *AuthHandler) *GradeHa
 }
 
 func (h *GradeHandler) GetStudentGrades(w http.ResponseWriter, r *http.Request) {
-	if h.authHandler.GetRole(r) != "Студент" {
+	if h.authHandler.GetRole(r) != constants.RoleStudent {
 		http.Error(w, "Доступ запрещён", http.StatusForbidden)
 		return
 	}
@@ -30,7 +31,7 @@ func (h *GradeHandler) GetStudentGrades(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *GradeHandler) GetAllGrades(w http.ResponseWriter, r *http.Request) {
-	if h.authHandler.GetRole(r) != "Администратор" {
+	if h.authHandler.GetRole(r) != constants.RoleAdmin {
 		http.Error(w, "Доступ запрещён", http.StatusForbidden)
 		return
 	}
@@ -44,7 +45,7 @@ func (h *GradeHandler) GetAllGrades(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GradeHandler) UpdateGrade(w http.ResponseWriter, r *http.Request) {
-	if h.authHandler.GetRole(r) != "Преподаватель" {
+	if h.authHandler.GetRole(r) != constants.RoleTeacher {
 		http.Error(w, "Доступ запрещён", http.StatusForbidden)
 		return
 	}
@@ -67,7 +68,7 @@ func (h *GradeHandler) UpdateGrade(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GradeHandler) GetCourseStudents(w http.ResponseWriter, r *http.Request) {
-	if h.authHandler.GetRole(r) != "Преподаватель" {
+	if h.authHandler.GetRole(r) != constants.RoleTeacher {
 		http.Error(w, "Доступ запрещён", http.StatusForbidden)
 		return
 	}

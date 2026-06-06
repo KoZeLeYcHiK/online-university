@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"online-university/constants"
 	"online-university/services"
 	"strconv"
 )
@@ -27,7 +28,7 @@ func (h *CourseHandler) GetCourses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CourseHandler) GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
-	if h.authHandler.GetRole(r) != "Преподаватель" {
+	if h.authHandler.GetRole(r) != constants.RoleTeacher {
 		http.Error(w, "Доступ запрещён", http.StatusForbidden)
 		return
 	}
@@ -41,7 +42,7 @@ func (h *CourseHandler) GetTeacherCourses(w http.ResponseWriter, r *http.Request
 }
 
 func (h *CourseHandler) AddCourse(w http.ResponseWriter, r *http.Request) {
-	if h.authHandler.GetRole(r) != "Администратор" {
+	if h.authHandler.GetRole(r) != constants.RoleAdmin {
 		http.Error(w, "Доступ запрещён", http.StatusForbidden)
 		return
 	}
@@ -66,7 +67,7 @@ func (h *CourseHandler) AddCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CourseHandler) DeleteCourse(w http.ResponseWriter, r *http.Request) {
-	if h.authHandler.GetRole(r) != "Администратор" {
+	if h.authHandler.GetRole(r) != constants.RoleAdmin {
 		http.Error(w, "Доступ запрещён", http.StatusForbidden)
 		return
 	}
@@ -81,7 +82,7 @@ func (h *CourseHandler) DeleteCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CourseHandler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
-	if h.authHandler.GetRole(r) != "Администратор" {
+	if h.authHandler.GetRole(r) != constants.RoleAdmin {
 		http.Error(w, "Доступ запрещён", http.StatusForbidden)
 		return
 	}

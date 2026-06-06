@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"html/template"
 	"net/http"
+	"online-university/constants"
 )
 
 type UIHandler struct {
@@ -16,7 +17,7 @@ func NewUIHandler(db *sql.DB, auth *AuthHandler) *UIHandler {
 }
 
 func (h *UIHandler) AdminPage(w http.ResponseWriter, r *http.Request) {
-	if !h.authHandler.CheckRole(r, "Администратор") {
+	if !h.authHandler.CheckRole(r, constants.RoleAdmin) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -25,7 +26,7 @@ func (h *UIHandler) AdminPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UIHandler) TeacherPage(w http.ResponseWriter, r *http.Request) {
-	if !h.authHandler.CheckRole(r, "Преподаватель") {
+	if !h.authHandler.CheckRole(r, constants.RoleTeacher) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -34,7 +35,7 @@ func (h *UIHandler) TeacherPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UIHandler) StudentPage(w http.ResponseWriter, r *http.Request) {
-	if !h.authHandler.CheckRole(r, "Студент") {
+	if !h.authHandler.CheckRole(r, constants.RoleStudent) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}

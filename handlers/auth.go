@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"online-university/constants"
 )
 
 type AuthHandler struct {
@@ -57,11 +58,11 @@ func (h *AuthHandler) AuthHandler(w http.ResponseWriter, r *http.Request) {
 	h.sessions[sessionID] = role
 
 	switch role {
-	case "Администратор":
+	case constants.RoleAdmin:
 		http.Redirect(w, r, "/admin?session_id="+sessionID, http.StatusSeeOther)
-	case "Преподаватель":
+	case constants.RoleTeacher:
 		http.Redirect(w, r, "/teacher?session_id="+sessionID, http.StatusSeeOther)
-	case "Студент":
+	case constants.RoleStudent:
 		http.Redirect(w, r, "/student?session_id="+sessionID, http.StatusSeeOther)
 	default:
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
